@@ -7,7 +7,7 @@ Library.ShowToggleFrameInKeybinds = true
 
 local Window = Library:CreateWindow({
     Title = "Made by MasterZ",
-    Footer = "v1.0.0",
+    Footer = "v2.0.0",
     Icon = 0,
     NotifySide = "Right",
     ShowCustomCursor = true,
@@ -18,6 +18,9 @@ local Tabs = {
 }
 
 local GroupBox = Tabs.Main:AddLeftGroupbox("Main Toggle")
+
+-- ✅ Variabel global delay
+local teleportDelay = 10 -- default 10 detik
 
 -- ✅ Script Auto Checkpoint
 local function AutoCheckpoint()
@@ -40,11 +43,10 @@ local function AutoCheckpoint()
         if part and part:IsA("BasePart") then
             print("[Teleport] ke:", part.Name)
             hrp.CFrame = part.CFrame + Vector3.new(0, 5, 0)
-            -- simulasi sentuh trigger
             firetouchinterest(hrp, part, 0)
             task.wait(0.2)
             firetouchinterest(hrp, part, 1)
-            task.wait(2)
+            task.wait(teleportDelay) -- delay antar checkpoint (bisa diatur)
         end
     end
 
@@ -61,7 +63,7 @@ local function AutoCheckpoint()
         local finishZones = workspace:FindFirstChild("Finishzones")
         if finishZones then
             local nearestZone, nearestDist = nil, math.huge
-            local referencePos = (cp18.Position + cp19.Position) / 2 -- titik tengah CP18 & CP19
+            local referencePos = (cp18.Position + cp19.Position) / 2
 
             for _, zone in ipairs(finishZones:GetChildren()) do
                 if zone:IsA("BasePart") and zone.Name == "FinishZone" then
@@ -93,7 +95,7 @@ local function AutoCheckpoint()
     print("[Selesai] Auto Checkpoint + FinishZone test selesai.")
 end
 
--- ✅ Toggle UI untuk aktifkan auto checkpoint
+-- ✅ Toggle untuk aktifkan auto checkpoint
 GroupBox:AddToggle("AutoCP", {
     Text = "Auto Checkpoint → FinishZone",
     Default = false,
@@ -105,5 +107,19 @@ GroupBox:AddToggle("AutoCP", {
         else
             Library:Notify("⏹️ Auto Checkpoint berhenti", 3)
         end
+    end,
+})
+
+-- ✅ Slider untuk atur delay antar checkpoint
+GroupBox:AddSlider("DelaySlider", {
+    Text = "Delay Teleport (detik)",
+    Default = 10,
+    Min = 1,
+    Max = 20,
+    Rounding = 0,
+    Tooltip = "Atur jeda antar teleport",
+    Callback = function(value)
+        teleportDelay = value
+        Library:Notify("⏱️ Delay diset ke " .. value .. " detik", 2)
     end,
 })
