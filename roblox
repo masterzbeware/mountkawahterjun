@@ -1,4 +1,4 @@
--- Obsidian UI Setup
+-- ✅ Obsidian UI Setup
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 
@@ -7,7 +7,7 @@ Library.ShowToggleFrameInKeybinds = true
 
 local Window = Library:CreateWindow({
     Title = "Made by MasterZ",
-    Footer = "v2.0.0",
+    Footer = "v1.0.0",
     Icon = 0,
     NotifySide = "Right",
     ShowCustomCursor = true,
@@ -19,35 +19,91 @@ local Tabs = {
 
 local GroupBox = Tabs.Main:AddLeftGroupbox("Main Toggle")
 
--- Auto Checkpoint
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
+-- ✅ Script Auto Checkpoint
+local function AutoCheckpoint()
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
 
-GroupBox:AddToggle("AutoCheckpoint", {
-    Text = "Auto Checkpoint",
-    Default = false,
-    Tooltip = "Teleport otomatis ke semua checkpoint (1–19)",
-    Callback = function(state)
-        if state then
-            Library:Notify("Auto Checkpoint Aktif", 3)
-            task.spawn(function()
-                for i = 1, 19 do
-                    if not Library.Flags.AutoCheckpoint then break end -- stop kalau toggle dimatikan
-                    local cp = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_" .. i)
-                    if cp then
-                        print("[Teleport] Pindah ke:", cp.Name)
-                        hrp.CFrame = cp.CFrame + Vector3.new(0, 5, 0)
-                        task.wait(2) -- delay biar server sempet register
-                    else
-                        warn("Checkpoint_"..i.." tidak ditemukan")
+    -- Ambil checkpoints 1 - 18
+    local checkpoints = {}
+    for i = 1, 18 do
+        local cp = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_"..i)
+        if cp then
+            table.insert(checkpoints, cp)
+        end
+    end
+
+    -- Fungsi teleport + sentuh
+    local function teleportTo(part)
+        if part and part:IsA("BasePart") then
+            print("[Teleport] ke:", part.Name)
+            hrp.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+            -- simulasi sentuh trigger
+            firetouchinterest(hrp, part, 0)
+            task.wait(0.2)
+            firetouchinterest(hrp, part, 1)
+            task.wait(2)
+        end
+    end
+
+    -- Teleport semua checkpoint 1 - 18
+    for _, cp in ipairs(checkpoints) do
+        teleportTo(cp)
+    end
+
+    -- Cari FinishZone terdekat dari CP18 & CP19
+    local cp18 = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_18")
+    local cp19 = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_19")
+
+    if cp18 and cp19 then
+        local finishZones = workspace:FindFirstChild("Finishzones")
+        if finishZones then
+            local nearestZone, nearestDist = nil, math.huge
+            local referencePos = (cp18.Position + cp19.Position) / 2 -- titik tengah CP18 & CP19
+
+            for _, zone in ipairs(finishZones:GetChildren()) do
+                if zone:IsA("BasePart") and zone.Name == "FinishZone" then
+                    local dist = (zone.Position - referencePos).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearestZone = zone
                     end
                 end
-                Library:Notify("Auto Checkpoint selesai", 3)
-            end)
+            end
+
+            -- Teleport ke FinishZone terdekat
+            if nearestZone then
+                print("[Teleport] ke FinishZone terdekat:", nearestZone.Name)
+                hrp.CFrame = nearestZone.CFrame + Vector3.new(0, 5, 0)
+                firetouchinterest(hrp, nearestZone, 0)
+                task.wait(0.2)
+                firetouchinterest(hrp, nearestZone, 1)
+            else
+                warn("Tidak ada FinishZone ditemukan di Folder Finishzones.")
+            end
         else
-            Library:Notify("Auto Checkpoint Mati", 3)
+            warn("Folder Finishzones tidak ditemukan di workspace.")
+        end
+    else
+        warn("Checkpoint_18 atau Checkpoint_19 tidak ditemukan.")
+    end
+
+    print("[Selesai] Auto Checkpoint + FinishZone test selesai.")
+end
+
+-- ✅ Toggle UI untuk aktifkan auto checkpoint
+GroupBox:AddToggle("AutoCP", {
+    Text = "Auto Checkpoint → FinishZone",
+    Default = false,
+    Tooltip = "Teleport otomatis CP1-18 lalu ke FinishZone terdekat",
+    Callback = function(v)
+        if v then
+            Library:Notify("🚀 Auto Checkpoint dimulai...", 3)
+            task.spawn(AutoCheckpoint)
+        else
+            Library:Notify("⏹️ Auto Checkpoint berhenti", 3)
         end
     end,
 })
