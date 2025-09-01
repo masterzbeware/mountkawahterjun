@@ -1,0 +1,53 @@
+-- Obsidian UI Setup
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+
+Library.ForceCheckbox = false
+Library.ShowToggleFrameInKeybinds = true
+
+local Window = Library:CreateWindow({
+    Title = "Made by MasterZ",
+    Footer = "v2.0.0",
+    Icon = 0,
+    NotifySide = "Right",
+    ShowCustomCursor = true,
+})
+
+local Tabs = {
+    Main = Window:AddTab("Main", "user")
+}
+
+local GroupBox = Tabs.Main:AddLeftGroupbox("Main Toggle")
+
+-- Auto Checkpoint
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+GroupBox:AddToggle("AutoCheckpoint", {
+    Text = "Auto Checkpoint",
+    Default = false,
+    Tooltip = "Teleport otomatis ke semua checkpoint (1–19)",
+    Callback = function(state)
+        if state then
+            Library:Notify("Auto Checkpoint Aktif", 3)
+            task.spawn(function()
+                for i = 1, 19 do
+                    if not Library.Flags.AutoCheckpoint then break end -- stop kalau toggle dimatikan
+                    local cp = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_" .. i)
+                    if cp then
+                        print("[Teleport] Pindah ke:", cp.Name)
+                        hrp.CFrame = cp.CFrame + Vector3.new(0, 5, 0)
+                        task.wait(2) -- delay biar server sempet register
+                    else
+                        warn("Checkpoint_"..i.." tidak ditemukan")
+                    end
+                end
+                Library:Notify("Auto Checkpoint selesai", 3)
+            end)
+        else
+            Library:Notify("Auto Checkpoint Mati", 3)
+        end
+    end,
+})
