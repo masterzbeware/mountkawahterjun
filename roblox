@@ -2,124 +2,125 @@
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 
-Library.ForceCheckbox = false
-Library.ShowToggleFrameInKeybinds = true
-
 local Window = Library:CreateWindow({
-    Title = "Made by MasterZ",
-    Footer = "v2.0.0",
+    Title = "Hunting Hub",
+    Footer = "v1.0.0",
     Icon = 0,
     NotifySide = "Right",
     ShowCustomCursor = true,
 })
 
 local Tabs = {
-    Main = Window:AddTab("Main", "user")
+    Main = Window:AddTab("Main", "sword")
 }
 
-local GroupBox = Tabs.Main:AddLeftGroupbox("Main Toggle")
+-- ✅ Services & Remotes
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 
--- ✅ Variabel global delay
-local teleportDelay = 10 -- default 10 detik
+local CaptureAnimal     = RemoteEvents:WaitForChild("CaptureAnimal")
+local MinigameFinished  = RemoteEvents:WaitForChild("MinigameFinished")
+local RunAnimalHitParticle = RemoteEvents:WaitForChild("RunAnimalHitParticle")
+local LogCustomEvent    = RemoteEvents:WaitForChild("LogCustomEvent")
+local FireGun           = RemoteEvents:WaitForChild("FireGun")
+local ToggleItemLock    = RemoteEvents:WaitForChild("ToggleItemLock")
+local SellItem          = RemoteEvents:WaitForChild("SellItem")
 
--- ✅ Script Auto Checkpoint
-local function AutoCheckpoint()
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
+local AnimalsFolder = game.Workspace:WaitForChild("Animals")
 
-    -- Ambil checkpoints 1 - 18
-    local checkpoints = {}
-    for i = 1, 18 do
-        local cp = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_"..i)
-        if cp then
-            table.insert(checkpoints, cp)
-        end
-    end
+-- ✅ Config
+local shootDir = Vector3.new(-0.61, 0.08, 0.78)
 
-    -- Fungsi teleport + sentuh
-    local function teleportTo(part)
-        if part and part:IsA("BasePart") then
-            print("[Teleport] ke:", part.Name)
-            hrp.CFrame = part.CFrame + Vector3.new(0, 5, 0)
-            firetouchinterest(hrp, part, 0)
-            task.wait(0.2)
-            firetouchinterest(hrp, part, 1)
-            task.wait(teleportDelay) -- delay antar checkpoint (bisa diatur)
-        end
-    end
+local mutationList = {
+    "None","Grassbound","Albino","Umbra","Radioactive",
+    "Ghostly","Wyrmblooded","Ashen","Dimensional"
+}
 
-    -- Teleport semua checkpoint 1 - 18
-    for _, cp in ipairs(checkpoints) do
-        teleportTo(cp)
-    end
+-- ✅ Toggle states
+local autoHunt = false
+local autoSell = false
+local autoLock = false
 
-    -- Cari FinishZone terdekat dari CP18 & CP19
-    local cp18 = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_18")
-    local cp19 = workspace.CheckpointTrigger:FindFirstChild("Checkpoint_19")
+-- ✅ Main Logic
+local function HuntTarget(model)
+    local targetId = model.Name
+    local weight   = model:GetAttribute("Weight") or 0
+    local mutation = model:GetAttribute("Mutation") or "None"
 
-    if cp18 and cp19 then
-        local finishZones = workspace:FindFirstChild("Finishzones")
-        if finishZones then
-            local nearestZone, nearestDist = nil, math.huge
-            local referencePos = (cp18.Position + cp19.Position) / 2
+    if not autoHunt then return end -- keluar kalau Auto Hunt OFF
 
-            for _, zone in ipairs(finishZones:GetChildren()) do
-                if zone:IsA("BasePart") and zone.Name == "FinishZone" then
-                    local dist = (zone.Position - referencePos).Magnitude
-                    if dist < nearestDist then
-                        nearestDist = dist
-                        nearestZone = zone
-                    end
-                end
-            end
+    if weight > 20 or mutation ~= "None" then
+        local pos = model.PrimaryPart and model.PrimaryPart.Position or Vector3.zero
 
-            -- Teleport ke FinishZone terdekat
-            if nearestZone then
-                print("[Teleport] ke FinishZone terdekat:", nearestZone.Name)
-                hrp.CFrame = nearestZone.CFrame + Vector3.new(0, 5, 0)
-                firetouchinterest(hrp, nearestZone, 0)
-                task.wait(0.2)
-                firetouchinterest(hrp, nearestZone, 1)
-            else
-                warn("Tidak ada FinishZone ditemukan di Folder Finishzones.")
-            end
-        else
-            warn("Folder Finishzones tidak ditemukan di workspace.")
+        -- tembak
+        FireGun:FireServer(pos, shootDir, targetId)
+        task.wait(0.2)
+
+        RunAnimalHitParticle:FireServer("Perfect", targetId)
+        LogCustomEvent:FireServer("HitPerfect")
+        task.wait(0.2)
+
+        MinigameFinished:FireServer(true)
+        task.wait(0.2)
+
+        CaptureAnimal:FireServer(tonumber(targetId))
+        print("[AutoHunt] Tangkap:", targetId, "Weight:", weight, "Mutation:", mutation)
+
+        -- tunggu item masuk inventory
+        task.wait(0.5)
+
+        if mutation ~= "None" and autoLock then
+            ToggleItemLock:FireServer(targetId)
+            print("[AutoHunt] Mutation "..mutation.." → AUTO LOCK ✅")
+        elseif mutation == "None" and autoSell then
+            SellItem:FireServer("All")
+            print("[AutoHunt] Mutation None → AUTO SELL 💰")
         end
     else
-        warn("Checkpoint_18 atau Checkpoint_19 tidak ditemukan.")
+        print("[AutoHunt] Skip target:", targetId, "(Weight:", weight, ", Mutation:", mutation..")")
     end
-
-    print("[Selesai] Auto Checkpoint + FinishZone test selesai.")
 end
 
--- ✅ Toggle untuk aktifkan auto checkpoint
-GroupBox:AddToggle("AutoCP", {
-    Text = "Auto Checkpoint → FinishZone",
-    Default = false,
-    Tooltip = "Teleport otomatis CP1-18 lalu ke FinishZone terdekat",
-    Callback = function(v)
-        if v then
-            Library:Notify("🚀 Auto Checkpoint dimulai...", 3)
-            task.spawn(AutoCheckpoint)
-        else
-            Library:Notify("⏹️ Auto Checkpoint berhenti", 3)
+-- ✅ Looping
+task.spawn(function()
+    while task.wait(2) do
+        if autoHunt then
+            for _, model in ipairs(AnimalsFolder:GetChildren()) do
+                if model:IsA("Model") then
+                    HuntTarget(model)
+                    task.wait(0.5)
+                end
+            end
         end
-    end,
+    end
+end)
+
+-- ✅ UI
+local GroupBox = Tabs.Main:AddLeftGroupbox("Automation")
+
+GroupBox:AddToggle("AutoHuntToggle", {
+    Text = "Auto Hunt",
+    Default = false,
+    Callback = function(v)
+        autoHunt = v
+        Library:Notify("Auto Hunt: "..tostring(v), 3)
+    end
 })
 
--- ✅ Slider untuk atur delay antar checkpoint
-GroupBox:AddSlider("DelaySlider", {
-    Text = "Delay Teleport (detik)",
-    Default = 10,
-    Min = 1,
-    Max = 20,
-    Rounding = 0,
-    Tooltip = "Atur jeda antar teleport",
-    Callback = function(value)
-        teleportDelay = value
-        Library:Notify("⏱️ Delay diset ke " .. value .. " detik", 2)
-    end,
+GroupBox:AddToggle("AutoSellToggle", {
+    Text = "Auto Sell (Mutation None)",
+    Default = false,
+    Callback = function(v)
+        autoSell = v
+        Library:Notify("Auto Sell: "..tostring(v), 3)
+    end
+})
+
+GroupBox:AddToggle("AutoLockToggle", {
+    Text = "Auto Favorite / Lock Mutation",
+    Default = false,
+    Callback = function(v)
+        autoLock = v
+        Library:Notify("Auto Lock: "..tostring(v), 3)
+    end
 })
