@@ -18,15 +18,16 @@ local Tabs = {
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 
-local CaptureAnimal     = RemoteEvents:WaitForChild("CaptureAnimal")
-local MinigameFinished  = RemoteEvents:WaitForChild("MinigameFinished")
+local CaptureAnimal        = RemoteEvents:WaitForChild("CaptureAnimal")
+local MinigameFinished     = RemoteEvents:WaitForChild("MinigameFinished")
 local RunAnimalHitParticle = RemoteEvents:WaitForChild("RunAnimalHitParticle")
-local LogCustomEvent    = RemoteEvents:WaitForChild("LogCustomEvent")
-local FireGun           = RemoteEvents:WaitForChild("FireGun")
-local ToggleItemLock    = RemoteEvents:WaitForChild("ToggleItemLock")
-local SellItem          = RemoteEvents:WaitForChild("SellItem")
+local LogCustomEvent       = RemoteEvents:WaitForChild("LogCustomEvent")
+local FireGun              = RemoteEvents:WaitForChild("FireGun")
+local ToggleItemLock       = RemoteEvents:WaitForChild("ToggleItemLock")
+local SellItem             = RemoteEvents:WaitForChild("SellItem")
 
 local AnimalsFolder = game.Workspace:WaitForChild("Animals")
+local RunService    = game:GetService("RunService")
 
 -- ✅ Config
 local shootDir = Vector3.new(-0.61, 0.08, 0.78)
@@ -41,13 +42,13 @@ local autoHunt = false
 local autoSell = false
 local autoLock = false
 
--- ✅ Main Logic
+-- ✅ Hunting Function
 local function HuntTarget(model)
     local targetId = model.Name
     local weight   = model:GetAttribute("Weight") or 0
     local mutation = model:GetAttribute("Mutation") or "None"
 
-    if not autoHunt then return end -- keluar kalau Auto Hunt OFF
+    if not autoHunt then return end -- kalau toggle OFF, keluar
 
     if weight > 20 or mutation ~= "None" then
         local pos = model.PrimaryPart and model.PrimaryPart.Position or Vector3.zero
@@ -81,15 +82,13 @@ local function HuntTarget(model)
     end
 end
 
--- ✅ Looping
-task.spawn(function()
-    while task.wait(2) do
-        if autoHunt then
-            for _, model in ipairs(AnimalsFolder:GetChildren()) do
-                if model:IsA("Model") then
-                    HuntTarget(model)
-                    task.wait(0.5)
-                end
+-- ✅ Loop pakai Heartbeat
+RunService.Heartbeat:Connect(function()
+    if autoHunt then
+        for _, model in ipairs(AnimalsFolder:GetChildren()) do
+            if model:IsA("Model") then
+                HuntTarget(model)
+                task.wait(0.5) -- delay kecil antar hewan (biar aman)
             end
         end
     end
