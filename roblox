@@ -32,53 +32,39 @@ local RunService    = game:GetService("RunService")
 -- ✅ Config
 local shootDir = Vector3.new(-0.61, 0.08, 0.78)
 
-local mutationList = {
-    "None","Grassbound","Albino","Umbra","Radioactive",
-    "Ghostly","Wyrmblooded","Ashen","Dimensional"
-}
-
 -- ✅ Toggle states
 local autoHunt = false
-local autoSell = false
-local autoLock = false
 
 -- ✅ Hunting Function
 local function HuntTarget(model)
+    if not autoHunt then return end
+
     local targetId = model.Name
-    local weight   = model:GetAttribute("Weight") or 0
     local mutation = model:GetAttribute("Mutation") or "None"
+    local pos = model.PrimaryPart and model.PrimaryPart.Position or Vector3.zero
 
-    if not autoHunt then return end -- kalau toggle OFF, keluar
+    -- tembak
+    FireGun:FireServer(pos, shootDir, targetId)
+    task.wait(0.2)
 
-    if weight > 20 or mutation ~= "None" then
-        local pos = model.PrimaryPart and model.PrimaryPart.Position or Vector3.zero
+    RunAnimalHitParticle:FireServer("Perfect", targetId)
+    LogCustomEvent:FireServer("HitPerfect")
+    task.wait(0.2)
 
-        -- tembak
-        FireGun:FireServer(pos, shootDir, targetId)
-        task.wait(0.2)
+    MinigameFinished:FireServer(true)
+    task.wait(0.2)
 
-        RunAnimalHitParticle:FireServer("Perfect", targetId)
-        LogCustomEvent:FireServer("HitPerfect")
-        task.wait(0.2)
+    CaptureAnimal:FireServer(tonumber(targetId))
+    print("[AutoHunt] Tangkap:", targetId, "Mutation:", mutation)
 
-        MinigameFinished:FireServer(true)
-        task.wait(0.2)
+    task.wait(0.5) -- tunggu masuk inventory
 
-        CaptureAnimal:FireServer(tonumber(targetId))
-        print("[AutoHunt] Tangkap:", targetId, "Weight:", weight, "Mutation:", mutation)
-
-        -- tunggu item masuk inventory
-        task.wait(0.5)
-
-        if mutation ~= "None" and autoLock then
-            ToggleItemLock:FireServer(targetId)
-            print("[AutoHunt] Mutation "..mutation.." → AUTO LOCK ✅")
-        elseif mutation == "None" and autoSell then
-            SellItem:FireServer("All")
-            print("[AutoHunt] Mutation None → AUTO SELL 💰")
-        end
+    if mutation ~= "None" then
+        ToggleItemLock:FireServer(targetId)
+        print("[AutoHunt] Mutation "..mutation.." → AUTO LOCK ✅")
     else
-        print("[AutoHunt] Skip target:", targetId, "(Weight:", weight, ", Mutation:", mutation..")")
+        SellItem:FireServer("All")
+        print("[AutoHunt] Mutation None → AUTO SELL 💰")
     end
 end
 
@@ -88,7 +74,7 @@ RunService.Heartbeat:Connect(function()
         for _, model in ipairs(AnimalsFolder:GetChildren()) do
             if model:IsA("Model") then
                 HuntTarget(model)
-                task.wait(0.5) -- delay kecil antar hewan (biar aman)
+                task.wait(0.5) -- biar ga terlalu spam
             end
         end
     end
@@ -98,28 +84,10 @@ end)
 local GroupBox = Tabs.Main:AddLeftGroupbox("Automation")
 
 GroupBox:AddToggle("AutoHuntToggle", {
-    Text = "Auto Hunt",
+    Text = "Auto Hunt (Sell None / Lock Mutasi)",
     Default = false,
     Callback = function(v)
         autoHunt = v
         Library:Notify("Auto Hunt: "..tostring(v), 3)
-    end
-})
-
-GroupBox:AddToggle("AutoSellToggle", {
-    Text = "Auto Sell (Mutation None)",
-    Default = false,
-    Callback = function(v)
-        autoSell = v
-        Library:Notify("Auto Sell: "..tostring(v), 3)
-    end
-})
-
-GroupBox:AddToggle("AutoLockToggle", {
-    Text = "Auto Favorite / Lock Mutation",
-    Default = false,
-    Callback = function(v)
-        autoLock = v
-        Library:Notify("Auto Lock: "..tostring(v), 3)
     end
 })
